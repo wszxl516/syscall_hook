@@ -1,6 +1,7 @@
 MODULE_NAME=test
 KERNEL_PATH ?= /lib/modules/$(shell uname -r)/build
-$(MODULE_NAME)-objs := hook.o setpage.o symbol.o
+ccflags-y := -g -DDEBUG
+$(MODULE_NAME)-objs := main.o hook.o setpage.o symbol.o
 obj-m := $(MODULE_NAME).o
 
 all:

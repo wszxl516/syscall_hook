@@ -1,0 +1,72 @@
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h> 
+#include "hook.h"
+static syscall_fn_t *syscall_table;
+static syscall_fn_t original_kill;
+#if  !defined(CONFIG_X86_64) && !defined(CONFIG_ARM64)
+#error Currently only x86_64 and arm64 architecture is supported
+#endif
+MODULE_VERSION("0.1");
+MODULE_DESCRIPTION("Syscall hook on linux");
+MODULE_AUTHOR("sun");
+MODULE_LICENSE("GPL");
+static long hook_kill_fn(const struct pt_regs *regs)
+{
+    struct task_struct *taskp;
+	pid_t pid, sig;
+    #if defined(CONFIG_ARM64)
+        pid = regs->regs[0];
+        sig = regs->regs[1];
+    #endif
+	#if defined(CONFIG_X86_64)
+		pid = regs->di;
+		sig = regs->si;
+	#endif
+	taskp = get_pid_task(find_get_pid(pid), PIDTYPE_PID);
+	pr_info("send signal %d to pid: %d name : %s\n", sig, pid, taskp->comm);
+    return original_kill(regs);
+}
+
+
+static int init_syscall_table(void)
+{
+    syscall_table = (syscall_fn_t *)lookup_name("sys_call_table");
+    pr_info("syscall_table addr: %lx\n", (unsigned long)syscall_table);
+    if(syscall_table == 0)
+	    return -EFAULT;
+    return 0;
+}
+
+static int __init modinit(void)
+{
+    int ret;
+    ret = init_syscall_table();
+    if(ret)
+    {
+        pr_err("init_syscall_table failed: %d\n", ret);
+        return ret;
+    }
+    ret = install_hook(syscall_table, __NR_kill, hook_kill_fn, &original_kill);
+    pr_info("original_kill addr: %lx\n", (unsigned long)original_kill);
+    if(ret)
+    {
+        pr_info("hook __NR_kill failed!\n");
+        return ret;
+    }
+    pr_info("install syscall hook done\n");
+    return 0;
+}
+
+static void __exit modexit(void)
+{
+    int res;
+    pr_info("exit\n");
+    res = uninstall_hook(syscall_table, __NR_kill, &original_kill);
+    if(res)
+        pr_err("uninstall hook failed!\n");
+    pr_info("goodbye\n");
+}
+
+module_init(modinit);
+module_exit(modexit);
