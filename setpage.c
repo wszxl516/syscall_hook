@@ -2,7 +2,7 @@
 #include "symbol.h"
 #if defined(CONFIG_ARM64)
 struct mm_struct *init_mm_ptr=NULL;
-static int change_page_range(pte_t *ptep, unsigned long addr, void *data)
+static int change_page_range(pte_t *ptep, pgtable_t token,unsigned long addr, void *data)
 {
     struct page_change_data *cdata = data;
     pte_t pte = READ_ONCE(*ptep);

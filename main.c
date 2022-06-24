@@ -7,11 +7,18 @@ static syscall_fn_t original_kill;
 #if  !defined(CONFIG_X86_64) && !defined(CONFIG_ARM64)
 #error Currently only x86_64 and arm64 architecture is supported
 #endif
+#define HOOK(_name , _nr, _org, _custom)    \
+    { \
+        .custom_syscall = (syscall_fn_t)_custom, \
+        .org_syscall = &_org, \
+        .syscall_nr = _nr, \
+        .name = (_name) \
+    }
 MODULE_VERSION("0.1");
 MODULE_DESCRIPTION("Syscall hook on linux");
 MODULE_AUTHOR("sun");
 MODULE_LICENSE("GPL");
-static long hook_kill_fn(const struct pt_regs *regs)
+asmlinkage long hook_kill_fn(const struct pt_regs *regs)
 {
     struct task_struct *taskp;
 	pid_t pid, sig;
@@ -28,7 +35,6 @@ static long hook_kill_fn(const struct pt_regs *regs)
     return original_kill(regs);
 }
 
-
 static int init_syscall_table(void)
 {
     syscall_table = (syscall_fn_t *)lookup_name("sys_call_table");
@@ -37,7 +43,9 @@ static int init_syscall_table(void)
 	    return -EFAULT;
     return 0;
 }
-
+struct syscall_hook kill_hook[] = {
+    HOOK("syscall_kill", __NR_kill, original_kill, hook_kill_fn),
+};
 static int __init modinit(void)
 {
     int ret;
@@ -47,7 +55,7 @@ static int __init modinit(void)
         pr_err("init_syscall_table failed: %d\n", ret);
         return ret;
     }
-    ret = install_hook(syscall_table, __NR_kill, hook_kill_fn, &original_kill);
+    ret = install_hooks(syscall_table, kill_hook, ARRAY_SIZE(kill_hook));
     pr_info("original_kill addr: %lx\n", (unsigned long)original_kill);
     if(ret)
     {
@@ -62,7 +70,7 @@ static void __exit modexit(void)
 {
     int res;
     pr_info("exit\n");
-    res = uninstall_hook(syscall_table, __NR_kill, &original_kill);
+    res = uninstall_hooks(syscall_table, kill_hook, ARRAY_SIZE(kill_hook));
     if(res)
         pr_err("uninstall hook failed!\n");
     pr_info("goodbye\n");

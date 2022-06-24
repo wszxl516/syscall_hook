@@ -5,9 +5,15 @@
 #include <linux/kconfig.h>
 #include "setpage.h"
 #include "symbol.h"
-#if defined(CONFIG_X86_64)
-    typedef long (*syscall_fn_t)(const struct pt_regs *regs);
-#endif
-int install_hook(syscall_fn_t *sys_call_table, int syscall_NR, syscall_fn_t hook_fn, syscall_fn_t *org_fn);
-int uninstall_hook(syscall_fn_t *sys_call_table, int syscall_NR, syscall_fn_t *org_fn);
+typedef asmlinkage long (*syscall_fn_t)(const struct pt_regs *regs);
+struct syscall_hook {
+    syscall_fn_t custom_syscall;
+    syscall_fn_t *org_syscall;
+    int syscall_nr;
+    char name[128];
+};
+int install_hook(syscall_fn_t *sys_call_table, struct syscall_hook *hook);
+int install_hooks(syscall_fn_t *sys_call_table, struct syscall_hook *hook, int hook_count);
+int uninstall_hook(syscall_fn_t *sys_call_table, struct syscall_hook *hook);
+int uninstall_hooks(syscall_fn_t *sys_call_table, struct syscall_hook *hook, int hook_count);
 #endif
