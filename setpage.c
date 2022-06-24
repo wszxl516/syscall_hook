@@ -2,7 +2,11 @@
 #include "symbol.h"
 #if defined(CONFIG_ARM64)
 struct mm_struct *init_mm_ptr=NULL;
-static int change_page_range(pte_t *ptep, pgtable_t token,unsigned long addr, void *data)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)
+    static inline int change_page_range(pte_t *ptep, pgtable_t token,unsigned long addr, void *data)
+#else
+    static inline int change_page_range(pte_t *ptep,unsigned long addr, void *data)
+#endif
 {
     struct page_change_data *cdata = data;
     pte_t pte = READ_ONCE(*ptep);
@@ -14,7 +18,7 @@ static int change_page_range(pte_t *ptep, pgtable_t token,unsigned long addr, vo
     return 0;
 }
 
-static int __change_memory_common(unsigned long start, unsigned long size,
+static inline int __change_memory_common(unsigned long start, unsigned long size,
                   pgprot_t set_mask, pgprot_t clear_mask)
 {
     struct page_change_data data;

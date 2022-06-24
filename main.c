@@ -4,6 +4,7 @@
 #include "hook.h"
 static syscall_fn_t *syscall_table;
 static syscall_fn_t original_kill;
+static syscall_fn_t original_execve;
 #if  !defined(CONFIG_X86_64) && !defined(CONFIG_ARM64)
 #error Currently only x86_64 and arm64 architecture is supported
 #endif
@@ -35,6 +36,28 @@ asmlinkage long hook_kill_fn(const struct pt_regs *regs)
     return original_kill(regs);
 }
 
+asmlinkage long hook_exec_fn(const struct pt_regs *regs)
+{
+    int ret;
+	char filename[255];
+    char __user * filename_user;
+    #if defined(CONFIG_ARM64)
+        filename_user = (char __user *)regs->regs[0];
+    #endif
+	#if defined(CONFIG_X86_64)
+        filename_user = (char __user *)regs->di;
+	#endif
+    ret = copy_from_user(filename, filename_user, strlen(filename_user));
+    if (ret<0)
+    {
+        pr_err("failed get execve filename!\n");
+        return -EFAULT;
+    }
+    
+	pr_info("execve: %s\n", filename);
+    return original_execve(regs);
+}
+
 static int init_syscall_table(void)
 {
     syscall_table = (syscall_fn_t *)lookup_name("sys_call_table");
@@ -45,6 +68,7 @@ static int init_syscall_table(void)
 }
 struct syscall_hook kill_hook[] = {
     HOOK("syscall_kill", __NR_kill, original_kill, hook_kill_fn),
+    HOOK("syscall_execve", __NR_execve, original_execve, hook_exec_fn),
 };
 static int __init modinit(void)
 {
@@ -69,11 +93,10 @@ static int __init modinit(void)
 static void __exit modexit(void)
 {
     int res;
-    pr_info("exit\n");
     res = uninstall_hooks(syscall_table, kill_hook, ARRAY_SIZE(kill_hook));
     if(res)
         pr_err("uninstall hook failed!\n");
-    pr_info("goodbye\n");
+    pr_info("exited\n");
 }
 
 module_init(modinit);
