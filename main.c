@@ -39,8 +39,9 @@ asmlinkage long hook_kill_fn(const struct pt_regs *regs)
 asmlinkage long hook_exec_fn(const struct pt_regs *regs)
 {
     int ret;
-	char filename[255];
+	char filename[NAME_MAX];
     char __user * filename_user;
+    memset(filename, 0, NAME_MAX);
     #if defined(CONFIG_ARM64)
         filename_user = (char __user *)regs->regs[0];
     #endif
