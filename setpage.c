@@ -56,7 +56,7 @@ int set_addr_rw(unsigned long addr) {
     if(!lookup_address_addr)
         lookup_address_addr = (lookup_address_fn)lookup_name("lookup_address");
     pte = lookup_address_addr(addr, &level);
-    if (pte->pte &~ _PAGE_RW) pte->pte |= _PAGE_RW;
+    set_pte_atomic(pte, pte_mkwrite(*pte));
     return 0;
 }
 
@@ -67,7 +67,7 @@ int set_addr_ro(unsigned long addr) {
     if(!lookup_address_addr)
         lookup_address_addr = (lookup_address_fn)lookup_name("lookup_address");
     pte = lookup_address_addr(addr, &level);
-    pte->pte = pte->pte &~_PAGE_RW;
+    set_pte_atomic(pte, pte_clear_flags(*pte, _PAGE_RW));
     return 0;
 
 }
