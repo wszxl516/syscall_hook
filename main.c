@@ -39,23 +39,23 @@ asmlinkage long hook_kill_fn(const struct pt_regs *regs)
 asmlinkage long hook_exec_fn(const struct pt_regs *regs)
 {
     int ret;
-	char filename[NAME_MAX];
+    char filename[NAME_MAX];
     char __user * filename_user;
     memset(filename, 0, NAME_MAX);
     #if defined(CONFIG_ARM64)
         filename_user = (char __user *)regs->regs[0];
     #endif
-	#if defined(CONFIG_X86_64)
+    #if defined(CONFIG_X86_64)
         filename_user = (char __user *)regs->di;
-	#endif
+    #endif
     ret = copy_from_user(filename, filename_user, strlen(filename_user));
     if (ret<0)
     {
         pr_err("failed get execve filename!\n");
-        return -EFAULT;
     }
-    
-	pr_info("execve: %s\n", filename);
+    else {
+    	pr_info("execve: %s\n", filename);
+    }
     return original_execve(regs);
 }
 
