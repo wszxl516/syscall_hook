@@ -31,13 +31,7 @@ unsigned long kaddr_lookup_name(const char *fname_raw)
 {
     int i;
     unsigned long kaddr;
-    char *fname_lookup, *fname;
-    fname_lookup = kzalloc(NAME_MAX, GFP_KERNEL);
-    if (!fname_lookup)
-        return 0;
-    fname = kzalloc(strlen(fname_raw)+4, GFP_KERNEL);
-    if (!fname)
-        return 0;
+    char fname_lookup[NAME_MAX], fname[NAME_MAX];
     strcpy(fname, fname_raw);
     strcat(fname, "+0x0");
     kaddr = (unsigned long) &sprint_symbol;
@@ -47,12 +41,10 @@ unsigned long kaddr_lookup_name(const char *fname_raw)
         sprint_symbol(fname_lookup, kaddr);
         if ( strncmp(fname_lookup, fname, strlen(fname)) == 0 )
         {
-            kfree(fname_lookup);
             return kaddr;
         }
         kaddr += 0x10;
     }
-    kfree(fname_lookup);
     return 0;
 }
 
