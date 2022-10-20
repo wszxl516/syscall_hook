@@ -1,8 +1,10 @@
 #include "symbol.h"
 #include <linux/kallsyms.h>
 #include <linux/kprobes.h>
-typedef unsigned long (*kallsyms_lookup_name_fn)(const char *name);
-static kallsyms_lookup_name_fn kallsyms_lookup_name_addr= NULL;
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
+    typedef unsigned long (*kallsyms_lookup_name_fn)(const char *name);
+    static kallsyms_lookup_name_fn kallsyms_lookup_name_addr= NULL;
+#endif
 #if defined(CONFIG_X86_64)
 unsigned long lookup_name(const char *name)
 {

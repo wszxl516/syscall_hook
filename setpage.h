@@ -1,6 +1,5 @@
 #ifndef __SET_PAGE__
 #define __SET_PAGE__
-#include <asm/pgtable.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <asm/tlbflush.h> 

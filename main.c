@@ -3,8 +3,9 @@
 #include <linux/kernel.h> 
 #include "hook.h"
 static syscall_fn_t *syscall_table;
-static syscall_fn_t original_kill;
-static syscall_fn_t original_execve;
+static syscall_fn_t original_kill = (syscall_fn_t)NULL;
+static syscall_fn_t original_execve = (syscall_fn_t)NULL;
+
 #if  !defined(CONFIG_X86_64) && !defined(CONFIG_ARM64)
 #error Currently only x86_64 and arm64 architecture is supported
 #endif
@@ -19,10 +20,29 @@ MODULE_VERSION("0.1");
 MODULE_DESCRIPTION("Syscall hook on linux");
 MODULE_AUTHOR("sun");
 MODULE_LICENSE("GPL");
-asmlinkage long hook_kill_fn(const struct pt_regs *regs)
-{
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,17,0)
+    asmlinkage long hook_kill_fn(pid_t pid, int sig)
+    {
+        struct task_struct *taskp;
+        struct pid *s_pid ;
+        s_pid= find_get_pid(pid);
+        if(s_pid != NULL){
+            taskp = get_pid_task(s_pid, PIDTYPE_PID);
+            pr_info("send signal %d to pid: %d name : %s\n", sig, pid, taskp->comm);
+        }
+        else{
+            pr_info("pid %d does not exists!\n", pid);
+        }
+        
+        return ((sys_kill_fn)(original_kill)) (pid, sig);
+    }
+#else
+    asmlinkage long hook_kill_fn(const struct pt_regs *regs)
+    {
     struct task_struct *taskp;
 	pid_t pid, sig;
+    struct pid *s_pid ;
     #if defined(CONFIG_ARM64)
         pid = regs->regs[0];
         sig = regs->regs[1];
@@ -31,33 +51,51 @@ asmlinkage long hook_kill_fn(const struct pt_regs *regs)
 		pid = regs->di;
 		sig = regs->si;
 	#endif
-	taskp = get_pid_task(find_get_pid(pid), PIDTYPE_PID);
-	pr_info("send signal %d to pid: %d name : %s\n", sig, pid, taskp->comm);
+    s_pid= find_get_pid(pid);
+    if(s_pid != NULL){
+	    taskp = get_pid_task(s_pid, PIDTYPE_PID);
+	    pr_info("send signal %d to pid: %d name : %s\n", sig, pid, taskp->comm);
+    }
+    else{
+        pr_info("pid does not exists!\n");
+    }
     return original_kill(regs);
 }
+#endif
 
-asmlinkage long hook_exec_fn(const struct pt_regs *regs)
-{
-    int ret;
-    char filename[NAME_MAX];
-    char __user * filename_user;
-    memset(filename, 0, NAME_MAX);
-    #if defined(CONFIG_ARM64)
-        filename_user = (char __user *)regs->regs[0];
-    #endif
-    #if defined(CONFIG_X86_64)
-        filename_user = (char __user *)regs->di;
-    #endif
-    ret = copy_from_user(filename, filename_user, strlen(filename_user));
-    if (ret<0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,17,0)
+    asmlinkage long hook_exec_fn(const char __user *filename, const char __user *const argv[], const char __user *const envp[])
     {
-        pr_err("failed get execve filename!\n");
+        char *user_filename;
+        int len = 0, copied;
+        len = strnlen_user(filename, PATH_MAX);
+        user_filename = (char*)kmalloc(len, GFP_KERNEL);
+        copied = strncpy_from_user(user_filename, filename, len);
+        pr_info("execve %s !\n", user_filename);
+        kfree(user_filename);
+        return ((sys_execve_fn)(original_execve)) (filename, argv, envp);
     }
-    else {
-    	pr_info("execve: %s\n", filename);
-    }
-    return original_execve(regs);
+#else
+    asmlinkage long hook_exec_fn(const struct pt_regs *regs)
+    {
+        char *user_filename;
+        int len = 0, copied;
+        char __user * filename;
+        #if defined(CONFIG_ARM64)
+            filename = (char __user*)regs->regs[0];
+        #endif
+        #if defined(CONFIG_X86_64)
+            filename = (char __user*)regs->di;
+        #endif
+        len = strnlen_user(filename, PATH_MAX);
+        user_filename = (char*)kmalloc(len, GFP_KERNEL);
+        copied = strncpy_from_user(user_filename, filename, len);
+        pr_info("execve %s !\n", user_filename);
+        kfree(user_filename);
+        return original_execve(regs);
 }
+#endif
+
 
 static int init_syscall_table(void)
 {
@@ -67,9 +105,10 @@ static int init_syscall_table(void)
 	    return -EFAULT;
     return 0;
 }
-struct syscall_hook kill_hook[] = {
-    HOOK("syscall_kill", __NR_kill, original_kill, hook_kill_fn),
-    HOOK("syscall_execve", __NR_execve, original_execve, hook_exec_fn),
+struct syscall_hook hooks[] = {
+    HOOK("sys_kill", __NR_kill, original_kill, hook_kill_fn),
+    HOOK("sys_execve", __NR_execve, original_execve, hook_exec_fn),
+
 };
 static int __init modinit(void)
 {
@@ -80,11 +119,10 @@ static int __init modinit(void)
         pr_err("init_syscall_table failed: %d\n", ret);
         return ret;
     }
-    ret = install_hooks(syscall_table, kill_hook, ARRAY_SIZE(kill_hook));
-    pr_info("original_kill addr: %lx\n", (unsigned long)original_kill);
+    ret = install_hooks(syscall_table, hooks, ARRAY_SIZE(hooks));
     if(ret)
     {
-        pr_info("hook __NR_kill failed!\n");
+        pr_info("hook failed!\n");
         return ret;
     }
     pr_info("install syscall hook done\n");
@@ -94,7 +132,7 @@ static int __init modinit(void)
 static void __exit modexit(void)
 {
     int res;
-    res = uninstall_hooks(syscall_table, kill_hook, ARRAY_SIZE(kill_hook));
+    res = uninstall_hooks(syscall_table, hooks, ARRAY_SIZE(hooks));
     if(res)
         pr_err("uninstall hook failed!\n");
     pr_info("exited\n");
