@@ -49,6 +49,14 @@ int set_addr_ro(unsigned long addr) {
 #endif
 
 #if defined(CONFIG_X86_64)
+static flush_tlb_kernel_range_t *flush_tlb_kernel_range_ptr;
+static inline void   __flush_tlb_kernel_range(unsigned long start, unsigned long end)
+{
+  if(!flush_tlb_kernel_range_ptr)
+    flush_tlb_kernel_range_ptr = (flush_tlb_kernel_range_t*)lookup_name("flush_tlb_kernel_range");
+  if(flush_tlb_kernel_range_ptr)
+    flush_tlb_kernel_range_ptr(start, end);
+}
 typedef pte_t *(*lookup_address_fn)(unsigned long address, unsigned int *level);
 lookup_address_fn lookup_address_addr = NULL;
 
@@ -59,6 +67,7 @@ int set_addr_rw(unsigned long addr) {
     lookup_address_addr = (lookup_address_fn)lookup_name("lookup_address");
   pte = lookup_address_addr(addr, &level);
   set_pte_atomic(pte, pte_mkwrite(*pte));
+  __flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
   return 0;
 }
 
@@ -70,7 +79,7 @@ int set_addr_ro(unsigned long addr) {
     lookup_address_addr = (lookup_address_fn)lookup_name("lookup_address");
   pte = lookup_address_addr(addr, &level);
   set_pte_atomic(pte, pte_clear_flags(*pte, _PAGE_RW));
-  flush_tlb_kernel_range(start, start + PAGE_SIZE);
+  __flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
   return 0;
 }
 #endif
