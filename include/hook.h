@@ -1,6 +1,5 @@
 #ifndef __HOOK__
 #define __HOOK__
-#include "setpage.h"
 #include "symbol.h"
 #include <asm/ptrace.h>
 #include <linux/kconfig.h>

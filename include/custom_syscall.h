@@ -1,9 +1,9 @@
 
 #ifndef __CUSTOM_SYSCALL_H__
 #define __CUSTOM_SYSCALL_H__
-#include "hook.h"
-#include "kapi.h"
+#include <linux/slab.h>
 #include <linux/kernel.h>
+#include "hook.h"
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)
     asmlinkage long hook_kill_fn(pid_t pid, int sig);
     asmlinkage long hook_exec_fn(const char __user *filename,

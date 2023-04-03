@@ -1,7 +1,7 @@
 #include "hook.h"
-#include "asm-generic/errno-base.h"
-#include "linux/gfp_types.h"
 #include "linux/slab.h"
+#include "setpage.h"
+
 static syscall_fn_t *sys_call_table;
 
 static int

@@ -52,10 +52,10 @@ static int count(const char __user *const __user *argv, int max)
 
 
 void dump_strings(const char __user *const __user *strings){
-	int len = 0;
+	int len = 0, i=0;
 	char *kaddr = NULL;
 	int argc = count(strings,  MAX_ARG_STRINGS);
-	for(int i=0; i < argc; i++) {
+	for(i=0; i < argc; i++) {
 		const char __user *str;
 		str = get_user_arg_ptr(strings, i);
 		if (IS_ERR(str))

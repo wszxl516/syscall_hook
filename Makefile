@@ -10,7 +10,7 @@ ifneq ($(KERNELRELEASE),)
 else
 	PWD := $(shell pwd)
 	GIT_VERSION = $(shell git rev-parse --short HEAD)
-	KDIR:= /lib/modules/`uname -r`/build GIT_VERSION='0x$(GIT_VERSION)'
+	KDIR:= /lib/modules/`uname -r`/build GIT_VERSION='0x0$(GIT_VERSION)'
 
 all:
 	make -C $(KDIR) M=$(PWD)
