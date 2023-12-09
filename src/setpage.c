@@ -66,7 +66,7 @@ int set_addr_rw(unsigned long addr) {
   if (!lookup_address_addr)
     lookup_address_addr = (lookup_address_fn)lookup_name("lookup_address");
   pte = lookup_address_addr(addr, &level);
-  set_pte_atomic(pte, pte_mkwrite(*pte));
+  set_pte_atomic(pte, pte_set_flags(*pte, _PAGE_RW));
   __flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
   return 0;
 }
